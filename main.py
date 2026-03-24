@@ -7,7 +7,7 @@ async def start(update, context):
     await update.message.reply_text("Bot läuft!")
 
 if __name__ == "__main__":
-    print("STARTING BOT...")
+    print("BOT STARTING...")
 
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
