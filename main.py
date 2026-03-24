@@ -1,41 +1,44 @@
 import os
+import asyncio
 from telegram import Update, LabeledPrice
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import openai
 
-# 🔑 Keys aus Render Environment Variables
+from openai import OpenAI
+
+# 🔑 Keys
 TOKEN = os.getenv("TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_KEY")
 
-openai.api_key = OPENAI_KEY
+# OpenAI Client (NEUE VERSION)
+client = OpenAI(api_key=OPENAI_KEY)
 
-# 🧠 User Memory (einfach gehalten)
+# Speicher
 user_messages = {}
 premium_users = {}
 
 FREE_LIMIT = 5
-PREMIUM_PRICE = 500  # Telegram Stars (XTR)
+PREMIUM_PRICE = 500  # Stars
 
 
-# 🤖 AI Antwort
+# 🤖 AI FUNCTION
 async def ask_ai(text):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[
             {"role": "user", "content": text}
         ]
     )
-    return response["choices"][0]["message"]["content"]
+    return response.choices[0].message.content
 
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Willkommen!\nWähle deinen Modus:\nNormal / Flirty / Fetisch"
+        "👋 Willkommen!\nSchreibe mir etwas 😊"
     )
 
 
-# 💬 Nachrichten Handler
+# 💬 MESSAGE HANDLER
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     text = update.message.text
@@ -46,9 +49,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(reply)
         return
 
-    # Free Limit Tracking
-    count = user_messages.get(user_id, 0)
-    count += 1
+    # Free Limit
+    count = user_messages.get(user_id, 0) + 1
     user_messages[user_id] = count
 
     if count > FREE_LIMIT:
@@ -59,13 +61,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 
-# 💰 Paywall / Invoice
+# 💰 PAYWALL
 async def send_paywall(update: Update):
     prices = [LabeledPrice("Premium Access", PREMIUM_PRICE)]
 
     await update.message.reply_invoice(
         title="Premium AI Access",
-        description="Unbegrenzte Nachrichten + bessere Antworten",
+        description="Unbegrenzte Nachrichten",
         payload="premium_access",
         provider_token="",  # WICHTIG für Telegram Stars
         currency="XTR",
@@ -73,16 +75,16 @@ async def send_paywall(update: Update):
     )
 
 
-# 💳 Zahlung bestätigt
+# 💳 PRECHECKOUT
 async def precheckout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.pre_checkout_query.answer(ok=True)
 
 
+# 💳 PAYMENT SUCCESS
 async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
     premium_users[user_id] = True
-
-    await update.message.reply_text("✅ Premium aktiviert! Du hast jetzt unbegrenzten Zugriff.")
+    await update.message.reply_text("✅ Premium aktiviert!")
 
 
 # 🚀 MAIN
